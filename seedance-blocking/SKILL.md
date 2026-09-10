@@ -1,6 +1,6 @@
 ---
 name: seedance-blocking
-description: Idea → blocked Blender previz you watch in the viewport → asset list → Seedance 2.5 prompt. Defaults to a checkerboard void when the brief names no place (one line, no set to build), composes a named environment on the spot from generic parts (there is no environment library), blocks subjects as coloured boxes, solves and audits the camera offline before touching Blender, and delivers to the viewport for notes instead of rendering. Handles one continuous shot or a multi-shot sequence with hard cuts. Takes either a full brief or a vague idea — with no brief at all it asks for one in chat, in prose, once. Carries a hardening pass of failure modes measured in production - void backgrounds drifting grey, bloom painting the frame, effects with no scale, colour that cannot carry an ambiguous proxy's identity, aspect mismatches. Use whenever someone wants to previz, block, or storyboard a shot in 3D; wants a camera move designed; wants a Seedance/Higgsfield video prompt driven by real camera motion; or says "block this", "previz this", "camera move for this shot", "napravi blocking", "blokiraj kadar". NOT for finished renders, modelling, or look-dev - and NOT when a blocking video already exists and only needs a prompt written against it, which is the seedance-reskin skill.
+description: Idea → blocked Blender previz you watch in the viewport → asset list → Seedance 2.5 prompt. Defaults to a checkerboard void when the brief names no place (one line, no set to build), composes a named environment on the spot from generic parts (there is no environment library), blocks subjects as coloured boxes, solves and audits the camera offline before touching Blender, and delivers to the viewport for notes instead of rendering. Handles one continuous shot or a multi-shot sequence with hard cuts. Takes either a full brief or a vague idea — with no brief at all it asks for one in chat, in prose, once. Carries a hardening pass of failure modes measured in production - void backgrounds drifting grey, bloom painting the frame, effects with no scale, colour that cannot carry an ambiguous proxy's identity, aspect mismatches. Use whenever someone wants to previz, block, or storyboard a shot in 3D; wants a camera move designed; wants a Seedance/Higgsfield video prompt driven by real camera motion; or hands over a STORYBOARD to turn into a blocking; or says "block this", "previz this", "camera move for this shot", "napravi blocking", "blokiraj kadar", "storyboard u blocking". NOT for finished renders, modelling, or look-dev - and NOT when a blocking video already exists and only needs a prompt written against it, which is the seedance-reskin skill.
 ---
 
 # Seedance Blocking
@@ -164,6 +164,14 @@ that is how you keep a relationship legible while he moves.
 **`build` and `lights` keys are inert.** The solver never reads them. Put the set
 there as notes if you like, but the set is real only when you call `PV.*` in step 5.
 
+### 2b — Storyboard intake. When the brief IS a board.
+
+A storyboard is a richer intake than a sentence and a poorer one than it looks: it gives the
+scene list, the composition and the action, and almost never gives **duration**. Read
+`references/STORYBOARD.md` — it covers extracting the scenes, the four questions to ask in one
+message, distributing time by weight of action, scenes-as-beats, and the **carrier** pattern for
+ensemble films that have no single hero.
+
 ### 3 — Solve. Loop here, not in Blender.
 
 ```bash
@@ -173,6 +181,24 @@ Six gates **per shot**: subject in frame, rotation rate, subject distance (to th
 BODY, not the origin), camera never stalls, camera never exceeds the rig's speed
 ceiling, no bounds clamping. Exit 0 = all passed. **Do not open Blender until it
 exits 0.** Each loop is 0.05 s — iterate freely.
+
+**If objects swap depth order, run the choreography gate as well:**
+
+```bash
+python3 <skill>/scripts/carousel_gate.py myshot.py
+```
+
+`solve_shot.py` proves the CAMERA is valid. On a locked-off ensemble film it passes trivially —
+`travel 0.00 m · rot 0.0 deg/s` — and proves nothing, because the camera is not what is at risk.
+Five gates over the spec's `cast` and `choreography` blocks measure what is: exactly one member
+clearly in front, its silhouette actually cutting across the others, depth agreeing with size,
+no scale pops, no census overflow. A spec with no `cast` block is skipped, not failed. Format in
+`references/STORYBOARD.md`.
+
+It exists because a three-product depth carousel came back as a static line-up — one left, one
+centre, one right, nothing overlapping, only the sizes changing. The swap order was correct and
+the film still read wrong. The gate fails that arrangement in arithmetic, before a frame is
+rendered.
 
 ### 4 — Push the core into Blender (once per session).
 
@@ -358,6 +384,8 @@ below are the `gimbal` default, not universal law.
 | a camera gate failed, or designing a move | `references/CAMERA_RULES.md` |
 | framings, ramps, cuts, **or a set the brief actually named** | `references/SHOT_GRAMMAR.md` |
 | the brief named no place | nothing — `PV.checker()`, do not open SHOT_GRAMMAR |
+| **the intake is a storyboard** | `references/STORYBOARD.md` — scenes, timing, the carrier pattern |
+| objects swap depth order, or a carousel reads wrong | `scripts/carousel_gate.py` + the `cast`/`choreography` format in STORYBOARD.md |
 | **checking the prompt before it ships** | `references/HARDENING.md` — pre-flight list at the end |
 | a black void, a glow that will not go, a splash that fills frame | `references/HARDENING.md` §6, §7, §9 |
 | an effect that must be present but restrained | `references/HARDENING.md` §9 — a reach, not a count |
