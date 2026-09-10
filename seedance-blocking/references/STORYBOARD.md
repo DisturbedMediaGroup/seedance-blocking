@@ -189,6 +189,33 @@ separate failures, one per swap, all fixed by starting each incoming can ~1.5 s 
 
 ---
 
+## Building it
+
+`PV.load_bake()` keys the camera and the carrier. On an ensemble film that is not the
+performance — the cast moving in depth is, and it lives in `choreography`:
+
+```python
+PV.wipe(prefixes=(..., "CAN_", "LOGO", "HAND"))
+PV.reset(fps=24, seconds=60)
+PV.sun()
+for name, col in CANS.items():
+    PV.cyl("CAN_" + name.upper(), radius=0.30, height=1.60, loc=(0, 1.3, 0.8), color=col)
+PV.slab("LOGO", ...); PV.slab("HANDL", ...); PV.slab("HANDR", ...)
+
+PV.load_bake("bake.json")
+PV.load_choreography("myshot.py", prefix="CAN_", z_lift=0.80)
+PV.audit()
+PV.viewport_ready()
+```
+
+Build the objects **first**; `load_choreography` only animates what already exists and prints
+MISSING for anything it cannot find. `z_lift` raises the whole ensemble off the floor, since the
+choreography is authored around z=0 while a standing object sits on its own half-height.
+
+Extend `wipe()`'s prefixes to cover your own names, or a re-run leaves the previous pass behind.
+
+---
+
 ## Checklist
 
 - [ ] Scene list and panel images extracted, scenes counted
@@ -203,3 +230,5 @@ separate failures, one per swap, all fixed by starting each incoming can ~1.5 s 
 - [ ] `front_zone` is a WINDOW: `solo_from` at the first step-forward, `solo_until` just before
       the last return lands
 - [ ] Swaps OVERLAP — the incoming member starts forward before the outgoing one is home
+- [ ] Every cast member has an object built for it before `PV.load_choreography()` runs — it
+      prints MISSING for any that does not, and a missing object survives into the render
