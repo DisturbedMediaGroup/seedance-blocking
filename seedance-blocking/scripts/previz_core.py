@@ -212,6 +212,13 @@ def light_row(name, count, start, step, axis="y", **kw):
     return out
 
 def sun(rot=(1.05, 0.0, 0.6), energy=3.0, color=(1.0, 0.94, 0.84), sky=(0.16, 0.20, 0.29)):
+    """Key light plus the world background colour.
+
+    `sky` IS the background, not a placeholder. If the film is a black void, pass
+    sky=(0, 0, 0) -- the default blue-grey renders as a lit sky, and the blocking
+    then hands the model a grey background to reproduce. That is the same failure
+    HARDENING.md section 6 describes on the prompt side, arriving from the build.
+    """
     o = light("LGT_sun", 'SUN', (0, 0, 20), rot, energy, color)
     bpy.context.scene.world.node_tree.nodes["Background"].inputs[0].default_value = (*sky, 1)
     return o
@@ -343,7 +350,7 @@ def load_bake(path, hero="HERO", clip=(0.15, 320.0)):
             "rig": D.get("rig"), "limits": D.get("limits")}
 
 # ================================================== consume the choreography ==
-def load_choreography(spec_path, prefix="", z_lift=0.0):
+def load_choreography(spec_path, prefix="", z_lift=0.0, gap=2.0, lift_roles=("actor",)):
     """Bake a spec's `cast` + `choreography` onto objects already in the scene.
 
     load_bake() keys the CAMERA and the subject. On an ensemble film the subject
@@ -356,8 +363,15 @@ def load_choreography(spec_path, prefix="", z_lift=0.0):
     object is exactly the kind of gap that survives into a render.
 
     Keys are (t, name, [x,y,z], scale), linear between them, matching the gate.
-    A member is HIDDEN before its first key and after its last, so entering and
-    leaving frame is the same mechanism the gate measures.
+    A member is HIDDEN before its first key, after its last, and inside any GAP
+    longer than `gap` seconds between adjacent keys -- a member that appears at
+    the top of the film and again at the end has LEFT in between, and without the
+    gap rule it sits in frame for the whole middle. Measured: a logo keyed 0-3s
+    and 56-60s stayed on screen for the 53 seconds between and read as the hero.
+
+    `z_lift` raises the ensemble off the floor. It applies only to members whose
+    `role` is in `lift_roles` (default: the unroled ones, i.e. the cast), because
+    a hand or a logo is authored at its own working height already.
     """
     import importlib.util
     sp = importlib.util.spec_from_file_location("shot_chore", spec_path)
@@ -389,27 +403,44 @@ def load_choreography(spec_path, prefix="", z_lift=0.0):
             missing.append(prefix + name.upper())
             continue
 
+        role = cast[name].get("role", "actor")
+        lift = z_lift if role in lift_roles else 0.0
+
+        # spans of continuous presence: a jump larger than `gap` means the member
+        # left and came back, and must be hidden in between
+        spans, run = [], [keys[0]]
+        for i in range(1, len(keys)):
+            if keys[i][0] - keys[i - 1][0] > gap:
+                spans.append(run); run = [keys[i]]
+            else:
+                run.append(keys[i])
+        spans.append(run)
+
         loc = [[], [], []]
         scl = [[], [], []]
         vis = []
-        t0, t1 = keys[0][0], keys[-1][0]
         for f in range(frames):
             t = f / fps
-            if t < t0 - 1e-9 or t > t1 + 1e-9:
-                p, s, on = keys[0][1], 0.0, 0.0          # parked, scale 0, hidden
-            else:
-                on = 1.0
-                p, s = keys[-1][1], keys[-1][2]
-                for i in range(len(keys) - 1):
-                    a, b = keys[i], keys[i + 1]
-                    if a[0] - 1e-9 <= t <= b[0] + 1e-9:
-                        span = b[0] - a[0]
-                        u = 0.0 if span <= 1e-9 else (t - a[0]) / span
-                        p = [a[1][j] + (b[1][j] - a[1][j]) * u for j in range(3)]
-                        s = a[2] + (b[2] - a[2]) * u
-                        break
+            p, s, on = keys[0][1], 0.0, 0.0              # parked, scale 0, hidden
+            for span in spans:
+                if len(span) == 1:
+                    if abs(t - span[0][0]) <= 1e-9:
+                        p, s, on = span[0][1], span[0][2], 1.0
+                    continue
+                if span[0][0] - 1e-9 <= t <= span[-1][0] + 1e-9:
+                    on = 1.0
+                    p, s = span[-1][1], span[-1][2]
+                    for i in range(len(span) - 1):
+                        a, b = span[i], span[i + 1]
+                        if a[0] - 1e-9 <= t <= b[0] + 1e-9:
+                            d = b[0] - a[0]
+                            u = 0.0 if d <= 1e-9 else (t - a[0]) / d
+                            p = [a[1][j] + (b[1][j] - a[1][j]) * u for j in range(3)]
+                            s = a[2] + (b[2] - a[2]) * u
+                            break
+                    break
             for j in range(3):
-                loc[j].append(p[j] + (z_lift if j == 2 else 0.0))
+                loc[j].append(p[j] + (lift if j == 2 else 0.0))
                 scl[j].append(s)
             vis.append(0.0 if on else 1.0)               # hide_viewport: 1 = hidden
 
