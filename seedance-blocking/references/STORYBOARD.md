@@ -161,6 +161,34 @@ from it. Two things carry over from the board that the spec does not hold:
 
 ---
 
+---
+
+## The carousel window
+
+`front_zone` is a **window**, not just an end time:
+
+```python
+"front_zone": {"solo_from": 8.2, "solo_until": 41.5},
+```
+
+Outside it the members may sit as equals and nothing is checked. That matters, because a
+carousel film almost always has both:
+
+- an **establishing** beat before it — five products arriving together, all the same size, no
+  one in front. That is the storyboard's intent, not a defect.
+- a **resolving** beat after it — the line-up, the packshot, the group standing clear.
+
+Set `solo_from` to the moment the first member actually starts forward, and `solo_until` to just
+before the last one finishes returning. Measured on a real spec: leaving the window open one
+sample too long failed the gate on the single frame where the last can had already landed.
+
+**Overlap the swaps.** The incoming member must start forward *before* the outgoing one has
+finished returning, so the two cross. A gap between them is a moment with nobody in front — and
+a moment with nobody in front is exactly the line-up the gate rejects. Same spec, measured: four
+separate failures, one per swap, all fixed by starting each incoming can ~1.5 s earlier.
+
+---
+
 ## Checklist
 
 - [ ] Scene list and panel images extracted, scenes counted
@@ -172,3 +200,6 @@ from it. Two things carry over from the board that the spec does not hold:
 - [ ] Colours assigned by role, one hue reserved outside the ensemble
 - [ ] `solve_shot.py` exits 0
 - [ ] `carousel_gate.py` run too, if anything swaps depth order
+- [ ] `front_zone` is a WINDOW: `solo_from` at the first step-forward, `solo_until` just before
+      the last return lands
+- [ ] Swaps OVERLAP — the incoming member starts forward before the outgoing one is home
