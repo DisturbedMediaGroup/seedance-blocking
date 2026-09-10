@@ -94,14 +94,34 @@ parallax is the entire job of a blocking set.
 SKILL.md                     the procedure Claude follows
 README.md                    this file
 LICENSE                      MIT
-scripts/solve_shot.py        offline solver + 6-gate audit + RIGS (plain python3)
+scripts/solve_shot.py        offline solver + 6-gate camera audit + RIGS (plain python3)
+scripts/carousel_gate.py     offline 5-gate CHOREOGRAPHY audit (depth order, overlap, pops)
 scripts/previz_core.py       Blender-side blocking API
 references/CAMERA_RULES.md   rotation limits, lens-from-framing, failure fixes
 references/SHOT_GRAMMAR.md   framings, moves, ramps, markers, set design
 references/SEEDANCE_PROMPT.md the 8-section prompt anatomy + asset list
 references/HARDENING.md      measured failure modes + pre-flight list
+references/STORYBOARD.md     storyboard intake: scenes, timing, the carrier pattern
 (no examples — the spec schema lives in SKILL.md, single source)
 ```
+
+## Storyboards and ensembles
+
+`references/STORYBOARD.md` handles the other common intake: a board rather than a sentence. It
+covers extracting the scene list, the four questions a board never answers (duration, take or
+cuts, which fluids stay unblocked, whether organics get boxed), distributing time by weight of
+action, and treating scenes as **beats** rather than shots.
+
+It also carries the **carrier** pattern. The solver tracks one subject; a product carousel or
+any ensemble has none, so you declare a static proxy at the centre for the camera to hold. That
+costs something worth knowing: with a carrier and a locked-off rig every camera gate passes
+trivially — `travel 0.00 m · rot 0.0 deg/s` — and proves nothing.
+
+Which is what `scripts/carousel_gate.py` is for. Five gates over a `cast` and a `choreography`
+block: exactly one member clearly in front, its silhouette actually cutting across the others,
+depth agreeing with size, no scale pops, no census overflow. It exists because a three-product
+depth carousel came back as a static line-up — one left, one centre, one right, nothing
+overlapping, only the sizes changing — and the camera gates had nothing to say about it.
 
 ## Hardening
 
