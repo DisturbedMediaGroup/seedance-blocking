@@ -342,6 +342,101 @@ def load_bake(path, hero="HERO", clip=(0.15, 320.0)):
     return {"frames": D["frames"], "shots": len(cams), "cameras": [c.name for c in cams],
             "rig": D.get("rig"), "limits": D.get("limits")}
 
+# ================================================== consume the choreography ==
+def load_choreography(spec_path, prefix="", z_lift=0.0):
+    """Bake a spec's `cast` + `choreography` onto objects already in the scene.
+
+    load_bake() keys the CAMERA and the subject. On an ensemble film the subject
+    is a carrier and the real performance is the cast moving in depth around it --
+    that lives in `choreography`, and this is what puts it on the timeline.
+
+    Each cast member needs an object already built, named `<prefix><NAME>` in
+    upper case, e.g. cast key "bacon" -> object "CAN_BACON" with prefix "CAN_".
+    A member with no object is REPORTED, never silently skipped -- a missing
+    object is exactly the kind of gap that survives into a render.
+
+    Keys are (t, name, [x,y,z], scale), linear between them, matching the gate.
+    A member is HIDDEN before its first key and after its last, so entering and
+    leaving frame is the same mechanism the gate measures.
+    """
+    import importlib.util
+    sp = importlib.util.spec_from_file_location("shot_chore", spec_path)
+    mod = importlib.util.module_from_spec(sp)
+    sp.loader.exec_module(mod)
+    D = getattr(mod, "SHOT", None) or getattr(mod, "SPEC", None)
+    if D is None:
+        raise RuntimeError(f"{spec_path}: no SHOT dict")
+
+    cast, chore = D.get("cast"), D.get("choreography")
+    if not cast or not chore:
+        return {"members": 0, "note": "spec has no cast/choreography"}
+
+    fps = D.get("fps", 24)
+    frames = int(round(float(D.get("seconds", 0.0)) * fps))
+    sc = bpy.context.scene
+    sc.render.fps, sc.frame_start, sc.frame_end = fps, 1, frames
+
+    trk = {}
+    for t, name, pos, scale in chore:
+        trk.setdefault(name, []).append((float(t), list(pos), float(scale)))
+    for k in trk:
+        trk[k].sort(key=lambda a: a[0])
+
+    missing, done = [], []
+    for name, keys in trk.items():
+        ob = bpy.data.objects.get(prefix + name.upper()) or bpy.data.objects.get(name.upper())
+        if ob is None:
+            missing.append(prefix + name.upper())
+            continue
+
+        loc = [[], [], []]
+        scl = [[], [], []]
+        vis = []
+        t0, t1 = keys[0][0], keys[-1][0]
+        for f in range(frames):
+            t = f / fps
+            if t < t0 - 1e-9 or t > t1 + 1e-9:
+                p, s, on = keys[0][1], 0.0, 0.0          # parked, scale 0, hidden
+            else:
+                on = 1.0
+                p, s = keys[-1][1], keys[-1][2]
+                for i in range(len(keys) - 1):
+                    a, b = keys[i], keys[i + 1]
+                    if a[0] - 1e-9 <= t <= b[0] + 1e-9:
+                        span = b[0] - a[0]
+                        u = 0.0 if span <= 1e-9 else (t - a[0]) / span
+                        p = [a[1][j] + (b[1][j] - a[1][j]) * u for j in range(3)]
+                        s = a[2] + (b[2] - a[2]) * u
+                        break
+            for j in range(3):
+                loc[j].append(p[j] + (z_lift if j == 2 else 0.0))
+                scl[j].append(s)
+            vis.append(0.0 if on else 1.0)               # hide_viewport: 1 = hidden
+
+        ch = {("location", 0): loc[0], ("location", 1): loc[1], ("location", 2): loc[2],
+              ("scale", 0): scl[0], ("scale", 1): scl[1], ("scale", 2): scl[2],
+              ("hide_viewport", -1): vis, ("hide_render", -1): vis}
+        cb = _cbag(ob, f"ACT_{ob.name}_CHORE", 'OBJECT', ob.name)
+        for (path, idx), vals in ch.items():
+            fcu = cb.fcurves.new(path) if idx < 0 else cb.fcurves.new(path, index=idx)
+            fcu.keyframe_points.add(len(vals))
+            flat = []
+            for i, v in enumerate(vals):
+                flat += [1 + i, v]
+            fcu.keyframe_points.foreach_set("co", flat)
+            fcu.keyframe_points.foreach_set("interpolation",
+                                            [0 if idx < 0 else 1] * len(vals))
+            fcu.update()
+        done.append(ob.name)
+
+    out = {"members": len(done), "baked": done, "frames": frames}
+    if missing:
+        out["MISSING"] = missing
+        print(f"[PV] load_choreography: {len(missing)} cast member(s) have NO object "
+              f"and were NOT baked: {', '.join(missing)}")
+    return out
+
+
 # ======================================================== viewport delivery ==
 def viewport_ready(shading='SOLID', overlays=False, clip=(0.15, 320.0)):
     """Put the user's viewport in camera view, clean, on frame 1, ready for Space.
