@@ -208,6 +208,25 @@ PV.audit()
 PV.viewport_ready()
 ```
 
+**Keys must be DENSE.** `load_choreography` treats a gap larger than `gap` seconds (default
+2.0) between adjacent keys as the member having LEFT, and hides it in between. That is what
+makes an object able to appear at the top of a film and again at the end — but it also means
+that authoring keys only at the moments of change makes a member flicker out during its own
+quiet stretches. Hold it: repeat its current position every couple of seconds through its whole
+life. Measured on a real spec: a can keyed only at its turning points broke into eight spans and
+would have vanished repeatedly; regenerating the same choreography densely took it to one span
+and 164 keys across the cast.
+
+The only large gap that should exist is a deliberate exit — a logo keyed 0-3s and 56-60s has a
+53-second gap, and that gap is exactly the mechanism hiding it through the middle.
+
+**A carrier is not a prop — hide it.** `load_bake` builds `HERO_block` as a real mesh, and a
+carrier sitting at the centre of the arrangement renders as the largest object in frame. Set
+`hide_viewport` and `hide_render` on it after the bake, or the film's hero is a grey box.
+
+**`z_lift` applies by role.** Hands, logos and anything authored at its own working height pass
+`role` in the cast and are excluded from the lift; only the ensemble is raised off the floor.
+
 Build the objects **first**; `load_choreography` only animates what already exists and prints
 MISSING for anything it cannot find. `z_lift` raises the whole ensemble off the floor, since the
 choreography is authored around z=0 while a standing object sits on its own half-height.
@@ -230,5 +249,9 @@ Extend `wipe()`'s prefixes to cover your own names, or a re-run leaves the previ
 - [ ] `front_zone` is a WINDOW: `solo_from` at the first step-forward, `solo_until` just before
       the last return lands
 - [ ] Swaps OVERLAP — the incoming member starts forward before the outgoing one is home
+- [ ] Keys are DENSE — no gap inside a member's life exceeds the `gap` threshold, so nothing
+      flickers out during its own quiet stretches
+- [ ] The carrier mesh (`HERO_block`) is hidden after the bake — it is not a prop
+- [ ] `PV.sun(sky=(0,0,0))` if the film is a void; the default sky renders blue-grey
 - [ ] Every cast member has an object built for it before `PV.load_choreography()` runs — it
       prints MISSING for any that does not, and a missing object survives into the render
