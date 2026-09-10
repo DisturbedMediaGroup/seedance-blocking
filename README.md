@@ -31,21 +31,6 @@ unzip seedance-blocking.zip -d ~/.claude/skills/
 You should end up with `~/.claude/skills/seedance-blocking/SKILL.md`. Restart
 Claude Code. That's it.
 
-## Already have a blocking?
-
-This skill **builds** one. If a greybox clip already exists — someone else's previz, an old
-render, a viewport capture — and all you need is the prompt written against it, use
-[**seedance-reskin**](https://github.com/DisturbedMediaGroup/seedance-reskin) instead. It reads
-the clip, extracts a cut list, and writes the prompt with the same hardening pass, without
-touching Blender.
-
-|  | seedance-blocking | seedance-reskin |
-|---|---|---|
-| input | an idea in one sentence | a finished blocking video |
-| builds the blocking | yes, in your Blender | no |
-| needs Blender + Higgsfield bridge | yes | no |
-| output | `.blend` + greybox clip + asset list + prompt | prompt |
-
 ## Use it
 
 Open Blender, connect the bridge, then run `/seedance-blocking`. Two ways in:
@@ -109,14 +94,34 @@ parallax is the entire job of a blocking set.
 SKILL.md                     the procedure Claude follows
 README.md                    this file
 LICENSE                      MIT
-scripts/solve_shot.py        offline solver + 6-gate audit + RIGS (plain python3)
+scripts/solve_shot.py        offline solver + 6-gate camera audit + RIGS (plain python3)
+scripts/carousel_gate.py     offline 5-gate CHOREOGRAPHY audit (depth order, overlap, pops)
 scripts/previz_core.py       Blender-side blocking API
 references/CAMERA_RULES.md   rotation limits, lens-from-framing, failure fixes
 references/SHOT_GRAMMAR.md   framings, moves, ramps, markers, set design
 references/SEEDANCE_PROMPT.md the 8-section prompt anatomy + asset list
 references/HARDENING.md      measured failure modes + pre-flight list
+references/STORYBOARD.md     storyboard intake: scenes, timing, the carrier pattern
 (no examples — the spec schema lives in SKILL.md, single source)
 ```
+
+## Storyboards and ensembles
+
+`references/STORYBOARD.md` handles the other common intake: a board rather than a sentence. It
+covers extracting the scene list, the four questions a board never answers (duration, take or
+cuts, which fluids stay unblocked, whether organics get boxed), distributing time by weight of
+action, and treating scenes as **beats** rather than shots.
+
+It also carries the **carrier** pattern. The solver tracks one subject; a product carousel or
+any ensemble has none, so you declare a static proxy at the centre for the camera to hold. That
+costs something worth knowing: with a carrier and a locked-off rig every camera gate passes
+trivially — `travel 0.00 m · rot 0.0 deg/s` — and proves nothing.
+
+Which is what `scripts/carousel_gate.py` is for. Five gates over a `cast` and a `choreography`
+block: exactly one member clearly in front, its silhouette actually cutting across the others,
+depth agreeing with size, no scale pops, no census overflow. It exists because a three-product
+depth carousel came back as a static line-up — one left, one centre, one right, nothing
+overlapping, only the sizes changing — and the camera gates had nothing to say about it.
 
 ## Hardening
 
@@ -139,16 +144,6 @@ Two of them are **blocking** rules, not prompt rules — they change what you bu
 - **Render at the delivery aspect.** No wording compensates for a mismatch.
 
 The file ends in a pre-flight checklist. Run it before the prompt leaves your hands.
-
-## Credit
-
-The skill, the solver, the previz API, the rig presets and the prompt anatomy are the work of
-**Thomas Lundström / Grove Media**, built on the Higgsfield + Blender method taught by
-[@adilinthewild](https://x.com/adilinthewild).
-
-`references/HARDENING.md`, and the two build rules it contributes to `SKILL.md` (ambiguous-shape
-colour, delivery aspect), are additions from production use — every entry a failure measured on
-a real job rather than a precaution.
 
 ## Licence
 
