@@ -35,7 +35,9 @@ SPEC FORMAT
       (14.5, "bacon",  [-1.6, 1.4, 0.0], 0.55),
       ...
     ],
-    "front_zone": {"depth": 0.0, "solo_until": 41.5},   # optional, defaults below
+    "front_zone": {"solo_from": 7.0, "solo_until": 41.5},   # optional; the CAROUSEL
+                                                           # WINDOW -- outside it the
+                                                           # members may sit as equals
 
 Keys are sampled and linearly interpolated between them, exactly as the bake
 does. A member absent before its first key or after its last is OFF-SCREEN and
@@ -96,7 +98,7 @@ def apparent(size, scale, pos, cam_y):
 
 
 # -------------------------------------------------------------------- gates --
-def gate_solo_front(members, chore_t, solo_until, report, step):
+def gate_solo_front(members, chore_t, solo_from, solo_until, report, step):
     """Exactly one member clearly in front, except while two are crossing.
 
     During a swap the outgoing and incoming members necessarily pass through the
@@ -106,7 +108,7 @@ def gate_solo_front(members, chore_t, solo_until, report, step):
     unbroken run of ambiguity, not the total count."""
     runs, cur = [], None
     for t, live in chore_t:
-        if t > solo_until:
+        if t < solo_from or t > solo_until:
             continue
         actors = [m for m in live if members[m].get("role") != "graphic"]
         ambiguous = False
@@ -139,16 +141,16 @@ def gate_solo_front(members, chore_t, solo_until, report, step):
         return False
     longest = 0.0 if worst is None else (worst[1] - worst[0] + step)
     report.append(("PASS", "solo_front",
-        f"one member clearly in front before {solo_until:.1f}s "
+        f"one member clearly in front from {solo_from:.1f}s to {solo_until:.1f}s "
         f"(longest crossing {longest:.2f}s, limit {SWAP_WINDOW:.2f}s)"))
     return True
 
 
-def gate_overlap(members, chore_t, solo_until, report):
+def gate_overlap(members, chore_t, solo_from, solo_until, report):
     """The front member's silhouette must cut across the others."""
     bad = []
     for t, live in chore_t:
-        if t > solo_until:
+        if t < solo_from or t > solo_until:
             continue
         actors = [m for m in live if members[m].get("role") != "graphic"]
         if len(actors) < 2:
@@ -178,10 +180,12 @@ def gate_overlap(members, chore_t, solo_until, report):
     return True
 
 
-def gate_depth_order(members, chore_t, solo_until, report):
+def gate_depth_order(members, chore_t, solo_from, solo_until, report):
     """Nearest in depth must also be largest -- size and depth must agree."""
     bad = []
     for t, live in chore_t:
+        if t < solo_from or t > solo_until:
+            continue
         actors = [m for m in live if members[m].get("role") != "graphic"]
         if len(actors) < 2:
             continue
@@ -262,6 +266,7 @@ def main():
     fps = spec.get("fps", FPS_DEFAULT)
     total = float(spec.get("seconds", 0.0))
     fz = spec.get("front_zone", {})
+    solo_from  = float(fz.get("solo_from", 0.0))
     solo_until = float(fz.get("solo_until", total))
     cam_y = -6.5
     for sh in spec.get("shots", []):
@@ -293,14 +298,14 @@ def main():
 
     print(f"\n=== {spec.get('name','shot')} : choreography gate "
           f"({len(chore_t)} samples over {total:.1f}s, cast of {len(cast)}) ===")
-    print(f"    front zone solo until {solo_until:.1f}s, camera at y={cam_y:.2f}")
+    print(f"    carousel window {solo_from:.1f}s to {solo_until:.1f}s, camera at y={cam_y:.2f}")
 
     report = []
     ok = True
     ok &= gate_census(cast, chore_t, report)
-    ok &= gate_solo_front(cast, chore_t, solo_until, report, step)
-    ok &= gate_overlap(cast, chore_t, solo_until, report)
-    ok &= gate_depth_order(cast, chore_t, solo_until, report)
+    ok &= gate_solo_front(cast, chore_t, solo_from, solo_until, report, step)
+    ok &= gate_overlap(cast, chore_t, solo_from, solo_until, report)
+    ok &= gate_depth_order(cast, chore_t, solo_from, solo_until, report)
     ok &= gate_no_pops(cast, chore, report)
 
     print()
