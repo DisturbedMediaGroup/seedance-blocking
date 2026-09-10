@@ -224,6 +224,21 @@ PV.load_bake("bake.json")       # subject + one camera per shot + markers on the
 PV.viewport_ready()
 ```
 
+**An ensemble film needs one more call.** `load_bake` keys the CAMERA and the carrier; the cast
+moving in depth around it lives in the spec's `choreography` and is baked separately:
+
+```python
+PV.load_choreography("myshot.py", prefix="CAN_", z_lift=0.80)
+```
+
+Each cast key resolves to an object named `<prefix><NAME>` in upper case, falling back to the
+bare upper-case name — so `bacon` finds `CAN_BACON` and `logo` finds `LOGO` under the same
+prefix. A member with **no** object is printed as MISSING, never silently skipped. Members are
+hidden before their first key and after their last, which is how they enter and leave frame.
+
+The interpolation is the same linear walk `carousel_gate.py` samples, verified key for key — so
+a green gate describes the scene that actually gets built, not an approximation of it.
+
 Only when a place was named does `PV.checker()` become a dozen lines of parts.
 `PV.audit()` re-measures rotation, distance and in-frame from Blender's *evaluated*
 matrices — the only proof the bake actually landed, and it costs one call. It gates
